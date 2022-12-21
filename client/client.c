@@ -13,7 +13,7 @@
 #include <errno.h>
 
 void send_file (FILE *file, int sock) {
-    char data[1024] = {0};
+    char* data;
     
     while (fgets(data, 1024, file) != NULL)
     {
@@ -22,27 +22,37 @@ void send_file (FILE *file, int sock) {
             printf("error in sending file\n");
             exit(1);
         }
-        printf("%s\n", data);
         memset(data, 0, sizeof(data));
     }
+    data[0] = 'q';
+    send(sock, data, sizeof(data), 0);
+    memset(data, 0, sizeof(data));
+    printf("finish sending\n");
 }
 
-void receive_file (int sock, char* file_name) {
-    FILE* file;
-    char data[1024];
-    file = fopen(file_name, "w");
+void receive_file (int sock, char* name) {
+    char data[4096];
+    if (access(name, F_OK) == 0)
+    {
+        printf("file name already exists\n");
+        exit(1);
+    }
+    
+    FILE* file = fopen(name, "a+");
+
     while (1)
     {
-        int n = recv (sock, data, 1024, 0);
-        if (n <= 0)
+        if (recv (sock, data, 1024, 0) <= 0 || strcmp(data, "q") == 0)
         {
             break;
         }
-        fprintf(file, "%s", data);
+        fprintf(file, "%s",data);
         memset(data, 0, sizeof(data));
     }
-    
+    fclose(file);
+    printf("finish receiving\n");
 }
+
 
 int main (int argc, char *argv[]) {
     printf("%s\n", argv[0]);
@@ -66,15 +76,15 @@ int main (int argc, char *argv[]) {
         exit(1);
     }
     
-    char buffer[1024];
-    memset(buffer, 0, 1024);
+    char buffer[4096];
+    memset(buffer, 0, 4096);
 
     pid_t pid = fork();
 
     if (pid == 0)
     {
         // scanf("%s\n",buffer);
-        FILE* file = fopen ("1.txt", "r");
+        FILE* file = fopen ("1.png", "r");
         send_file(file, clientSocket);
     }
     else

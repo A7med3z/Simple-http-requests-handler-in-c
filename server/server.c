@@ -13,7 +13,7 @@
 #include <errno.h>
 
 void send_file (FILE *file, int sock) {
-    char data[1024] = {0};
+    char data[4096] = {0};
     
     while (fgets(data, 1024, file) != NULL)
     {
@@ -24,23 +24,33 @@ void send_file (FILE *file, int sock) {
         }
         memset(data, 0, sizeof(data));
     }
+    data[0] = 'q';
+    send(sock, data, sizeof(data), 0);
+    memset(data, 0, sizeof(data));
+    printf("finish sending\n");
 }
 
-void receive_file (int sock, FILE* file) {
-    char data[1024];
+void receive_file (int sock, char* name) {
+    char data[4096];
+    if (access(name, F_OK) == 0)
+    {
+        printf("file name already exists\n");
+        exit(1);
+    }
+    
+    FILE* file = fopen(name, "a+");
 
     while (1)
     {
-        if (recv (sock, data, 1024, 0) <= 0)
+        if (recv (sock, data, 1024, 0) <= 0 || strcmp(data, "q") == 0)
         {
             break;
         }
-        printf("%s\n", data);
-        fputs(data, file);
-        printf("%s\n", data);
+        fprintf(file, "%s",data);
         memset(data, 0, sizeof(data));
     }
     fclose(file);
+    printf("finish receiving\n");
 }
 
 int main (int argc, char *argv[])
@@ -76,6 +86,7 @@ int main (int argc, char *argv[])
     struct sockaddr_in clientAddress;
     memset(&clientAddress, 0, sizeof(clientAddress));
     int clientAddressLength = 0;
+    
     while (1)
     {
         memset(&clientAddress, 0, sizeof(clientAddress));
@@ -85,8 +96,9 @@ int main (int argc, char *argv[])
             printf("failed to accept the request\n");
             exit(1);
         }
-        fflush(stderr); 
+
         pid_t pid = fork();
+
         if (pid == -1)
         {
             close(serverConnection);
@@ -99,19 +111,7 @@ int main (int argc, char *argv[])
             while (1)
             {
                 memset(buffer, 0, sizeof(buffer));
-                FILE* file = fopen("file_name.txt", "w");
-                while (1)
-                {
-                    if (recv (serverConnection, buffer, 1024, 0) <= 0)
-                    {
-                    break;
-                    }
-                    printf("%s\n", buffer);
-                    fputs(buffer, file);
-                    printf("%s\n", buffer);
-                    memset(buffer, 0, sizeof(buffer));
-                }
-                    fclose(file);
+                receive_file(serverConnection, "132.png");
                 if (buffer[0] == 'q')
                 {
                     close(serverConnection);
