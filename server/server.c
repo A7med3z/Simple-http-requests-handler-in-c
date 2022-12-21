@@ -12,46 +12,55 @@
 #include <pthread.h>
 #include <errno.h>
 
-void send_file (FILE *file, int sock) {
-    char data[4096] = {0};
+void send_file (char *name, int sock) {
+    FILE* file = fopen (name, "rb");
+    send(sock, name, sizeof(name), 0);
+
+    int size;
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    fseek(file, 0, SEEK_SET);
     
-    while (fgets(data, 1024, file) != NULL)
+    printf("size = %d\n", size);    
+    send(sock, &size, sizeof(int), 0);
+    
+    char data[size];
+    bzero(data, sizeof(data));
+    
+    while (!feof(file))
     {
-        if (send(sock, data, sizeof(data), 0) == -1)
-        {
-            printf("error in sending file\n");
-            exit(1);
-        }
-        memset(data, 0, sizeof(data));
+        fread(data, 1, sizeof(data), file);
+        send(sock, data, sizeof(data), 0);
+        bzero(data, sizeof(data));
     }
-    data[0] = 'q';
-    send(sock, data, sizeof(data), 0);
-    memset(data, 0, sizeof(data));
+    fclose(file);
     printf("finish sending\n");
 }
 
-void receive_file (int sock, char* name) {
-    char data[4096];
+void receive_file (int sock) {
+
+    char name[1024];
+    recv(sock, name, 1024, 0);
+    printf("file name : %s\n", name);
+
     if (access(name, F_OK) == 0)
     {
         printf("file name already exists\n");
         exit(1);
     }
     
-    FILE* file = fopen(name, "a+");
-
-    while (1)
-    {
-        if (recv (sock, data, 1024, 0) <= 0 || strcmp(data, "q") == 0)
-        {
-            break;
-        }
-        fprintf(file, "%s",data);
-        memset(data, 0, sizeof(data));
-    }
+    int size;
+    recv(sock, &size, sizeof(int), 0);
+    printf("size = %d\n", size);
+    
+    char data[size];
+    recv (sock, data, size, 0);
+    FILE* file = fopen(name, "wb");
+    fwrite(data, 1, sizeof(data), file);
     fclose(file);
     printf("finish receiving\n");
 }
+
 
 int main (int argc, char *argv[])
 {
@@ -107,18 +116,7 @@ int main (int argc, char *argv[])
         if (pid == 0)
         {
             close(serverSocket);
-            char buffer[1024];
-            while (1)
-            {
-                memset(buffer, 0, sizeof(buffer));
-                receive_file(serverConnection, "132.png");
-                if (buffer[0] == 'q')
-                {
-                    close(serverConnection);
-                    exit(15);
-                }
-                send(serverConnection, buffer, strlen(buffer), 0);
-            }
+            receive_file(serverConnection);
         }
         else
         {

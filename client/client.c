@@ -12,51 +12,63 @@
 #include <pthread.h>
 #include <errno.h>
 
-void send_file (FILE *file, int sock) {
-    char* data;
-    
-    while (fgets(data, 1024, file) != NULL)
+void send_file (char *name, int sock) {
+
+    if (access(name, F_OK) != 0)
     {
-        if (send(sock, data, sizeof(data), 0) == -1)
-        {
-            printf("error in sending file\n");
-            exit(1);
-        }
-        memset(data, 0, sizeof(data));
+        printf("file doesn't exist\n");
+        exit(1);
     }
-    data[0] = 'q';
-    send(sock, data, sizeof(data), 0);
-    memset(data, 0, sizeof(data));
+
+    FILE* file = fopen (name, "rb");
+    send(sock, name, sizeof(name), 0);
+
+    int size;
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    
+    printf("size = %d\n", size);    
+    send(sock, &size, sizeof(int), 0);
+    
+    char data[size];
+    bzero(data, sizeof(data));
+    
+    while (!feof(file))
+    {
+        fread(data, 1, sizeof(data), file);
+        send(sock, data, sizeof(data), 0);
+        bzero(data, sizeof(data));
+    }
+    fclose(file);
     printf("finish sending\n");
 }
 
-void receive_file (int sock, char* name) {
-    char data[4096];
+void receive_file (int sock) {
+
+    char name[1024];
+    recv(sock, name, 1024, 0);
+    printf("file name : %s\n", name);
+
     if (access(name, F_OK) == 0)
     {
         printf("file name already exists\n");
         exit(1);
     }
     
-    FILE* file = fopen(name, "a+");
-
-    while (1)
-    {
-        if (recv (sock, data, 1024, 0) <= 0 || strcmp(data, "q") == 0)
-        {
-            break;
-        }
-        fprintf(file, "%s",data);
-        memset(data, 0, sizeof(data));
-    }
+    int size;
+    recv(sock, &size, sizeof(int), 0);
+    printf("size = %d\n", size);
+    
+    char data[size];
+    recv (sock, data, size, 0);
+    FILE* file = fopen(name, "w");
+    fwrite(data, 1, sizeof(data), file);
     fclose(file);
     printf("finish receiving\n");
 }
 
-
-int main (int argc, char *argv[]) {
-    printf("%s\n", argv[0]);
-
+int main () {
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == -1)
     {
@@ -75,21 +87,12 @@ int main (int argc, char *argv[]) {
         printf("connection error\n");
         exit(1);
     }
+
+    char name[100];
+    printf("enter file name: \n");
+    gets(name);
+    printf("-%s-\n", name);
+    send_file(name, clientSocket);
     
-    char buffer[4096];
-    memset(buffer, 0, 4096);
-
-    pid_t pid = fork();
-
-    if (pid == 0)
-    {
-        // scanf("%s\n",buffer);
-        FILE* file = fopen ("1.png", "r");
-        send_file(file, clientSocket);
-    }
-    else
-    {
-        receive_file(clientSocket, buffer);
-    }
     return 0;
 }
