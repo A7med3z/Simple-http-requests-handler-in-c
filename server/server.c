@@ -44,18 +44,13 @@ void send_file (char *name, int sock) {
 
     send(sock, data + offset * BLOCK_SIZE, lastBlockSize, 0);
     fclose(file);
+    free(data);
     printf("finish sending\n");
 }
 
 void receive_file (int sock,char*name) {
 
     printf("file name : %s\n", name);
-
-    if (access(name, F_OK) == 0)
-    {
-        printf("file name already exists\n");
-        return;
-    }
     
     int size;
     recv(sock, &size, sizeof(int), 0);
@@ -86,6 +81,10 @@ int main (int argc, char *argv[])
 
     int port_number;
     sscanf(argv[1], "%d", &port_number);
+
+    char ok_msg[] = "HTTP/1.1 200 OK\r\n";
+    char nf_msg[] = "HTTP/1.1 404 Not Found\r\n";
+    char ok[] = "ok";
     
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
@@ -149,10 +148,23 @@ int main (int argc, char *argv[])
             
             if (strcmp("POST", type) == 0)
             {
-                receive_file(serverConnection,name);
+                if (access(name, F_OK) != 0)
+                {
+                    send(serverConnection, ok, sizeof(ok), 0);
+                    receive_file(serverConnection,name);
+                } else 
+                {
+                    printf("file name already exists\n");
+                }
             } else if (strcmp("GET", type) == 0)
             {
-                send_file(name, serverConnection);
+                if (access(name, F_OK) == 0)
+                {
+                    send(serverConnection, ok_msg, sizeof(ok_msg), 0);
+                    send_file(name, serverConnection);
+                } else {
+                    send(serverConnection, nf_msg, sizeof(nf_msg), 0);
+                }
             } else {
                 printf("bad request\n");
                 exit(1);

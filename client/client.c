@@ -78,6 +78,7 @@ void receive_file (int sock,char*name) {
     FILE* file = fopen(name, "wb");        
     fwrite(data, 1, size, file);
     fclose(file);
+    free(data);
     printf("finish receiving\n");
 }
 
@@ -88,6 +89,10 @@ int main (int argc, char *argv[]) {
         printf("error\n");
         exit(1);
     }
+
+    char ok_msg[] = "HTTP/1.1 200 OK\r\n";
+    char nf_msg[] = "HTTP/1.1 404 Not Found\r\n";
+    char ok[] = "ok";
     
     char name[100];
     char request[100];
@@ -118,16 +123,29 @@ int main (int argc, char *argv[]) {
     
     scanf("client_%s %s", type, name);
 
+    char* response;
+
     if (strcmp("get", type) == 0)
     {
         sprintf(request, "HTTP/1.1 GET %s", name);
         send(clientSocket, request, 100, 0);
-        receive_file(clientSocket,name);
+        recv(clientSocket, response, 1024, 0);
+        if (strcmp(response, ok_msg) == 0)
+        {
+            receive_file(clientSocket,name);
+        } else {
+            printf("%s\n", response);
+        }   
     } else if (strcmp("post", type) == 0)
     {
         sprintf(request, "HTTP/1.1 POST %s", name);
         send(clientSocket, request, 100, 0);
-        send_file(name, clientSocket);
+        if (strcmp(response, ok) == 0)
+        {
+            send_file(name, clientSocket);
+        } else {
+            printf("%s\n", response);
+        }   
     } else {
         printf("bad request\n");
         exit(1);
