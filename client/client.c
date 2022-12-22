@@ -12,14 +12,9 @@
 #include <pthread.h>
 #include <errno.h>
 
+#define BLOCK_SIZE (50 * 1024)
+
 void send_file (char *name, int sock) {
-
-    if (access(name, F_OK) != 0)
-    {
-        printf("file doesn't exist\n");
-        exit(1);
-    }
-
     FILE* file = fopen (name, "rb");
     send(sock, name, sizeof(name), 0);
 
@@ -31,15 +26,24 @@ void send_file (char *name, int sock) {
     printf("size = %d\n", size);    
     send(sock, &size, sizeof(int), 0);
     
-    char data[size];
-    bzero(data, sizeof(data));
-    
-    while (!feof(file))
+    char* data = (char*) malloc(sizeof(char) * size);
+    fread(data, 1, size, file);
+
+    int num_blocks = size / BLOCK_SIZE;
+    printf("%d\n", size);
+    printf("%d\n", BLOCK_SIZE);
+    printf("%d\n", num_blocks);
+    int lastBlockSize = size % BLOCK_SIZE;
+    int offset = 0;
+
+    while (num_blocks > 0)
     {
-        fread(data, 1, sizeof(data), file);
-        send(sock, data, sizeof(data), 0);
-        bzero(data, sizeof(data));
+        send(sock, data + (offset * BLOCK_SIZE), BLOCK_SIZE, 0);
+        offset++;
+        num_blocks --;
     }
+
+    send(sock, data + offset * BLOCK_SIZE, lastBlockSize, 0);
     fclose(file);
     printf("finish sending\n");
 }
@@ -60,10 +64,21 @@ void receive_file (int sock) {
     recv(sock, &size, sizeof(int), 0);
     printf("size = %d\n", size);
     
-    char data[size];
-    recv (sock, data, size, 0);
-    FILE* file = fopen(name, "w");
-    fwrite(data, 1, sizeof(data), file);
+    char* data = (char*) malloc(sizeof(char) * size);
+
+    int total_recrived = 0;
+    int remaining = size;
+    int received_blobk;
+    
+    while (remaining > 0)
+    {
+        received_blobk = recv (sock, data + total_recrived, remaining, 0);
+        total_recrived += received_blobk;
+        remaining = size - total_recrived;
+    }
+
+    FILE* file = fopen(name, "wb");        
+    fwrite(data, 1, size, file);
     fclose(file);
     printf("finish receiving\n");
 }
@@ -89,10 +104,24 @@ int main () {
     }
 
     char name[100];
-    printf("enter file name: \n");
-    gets(name);
-    printf("-%s-\n", name);
-    send_file(name, clientSocket);
+    char request[100];
+    char type[20];
+
+    scanf("HTTP/1.1 %s %s", type, name);
     
+    sprintf(request, "HTTP/1.1 %s %s", type, name);
+    send(clientSocket, request, 100, 0);
+    printf("%s\n", request);
+    printf("%s\n", type);
+    if (strcmp("GET", type) == 0)
+    {
+        receive_file(clientSocket);
+    } else if (strcmp("POST", type) == 0)
+    {
+        send_file(name, clientSocket);
+    } else {
+        printf("bad request\n");
+        exit(1);
+    }    
     return 0;
 }
