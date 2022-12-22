@@ -81,7 +81,22 @@ void receive_file (int sock,char*name) {
     printf("finish receiving\n");
 }
 
-int main () {
+int main (int argc, char *argv[]) {
+
+    if (argc != 3)
+    {
+        printf("error\n");
+        exit(1);
+    }
+    
+    char name[100];
+    char request[100];
+    char type[20];
+    char host_name[20];
+    int port_number;
+
+    sscanf(argv[2], "%d", &port_number);
+
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == -1)
     {
@@ -92,32 +107,25 @@ int main () {
     memset(&serverAddress, 0, sizeof(serverAddress));
 
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddress.sin_port = htons(8080);
+    serverAddress.sin_addr.s_addr = inet_addr(argv[1]);
+    serverAddress.sin_port = htons(port_number);
 
     if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) != 0)
     {
         printf("connection error\n");
         exit(1);
     }
-
-    char name[100];
-    char request[100];
-    char type[20];
-    char host_name[20];
-    int port_number;
-
-    scanf("client_%s %s %s (%d)", type, name, host_name, &port_number);
     
+    scanf("client_%s %s", type, name);
 
     if (strcmp("get", type) == 0)
     {
-        sprintf(request, "HTTP/1.1 GET %s %s %d", name, host_name, port_number);
+        sprintf(request, "HTTP/1.1 GET %s", name);
         send(clientSocket, request, 100, 0);
         receive_file(clientSocket,name);
     } else if (strcmp("post", type) == 0)
     {
-        sprintf(request, "HTTP/1.1 POST %s %s %d", name, host_name, port_number);
+        sprintf(request, "HTTP/1.1 POST %s", name);
         send(clientSocket, request, 100, 0);
         send_file(name, clientSocket);
     } else {

@@ -83,6 +83,10 @@ void receive_file (int sock,char*name) {
 
 int main (int argc, char *argv[])
 {
+
+    int port_number;
+    sscanf(argv[1], "%d", &port_number);
+    
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
     {
@@ -97,8 +101,8 @@ int main (int argc, char *argv[])
     memset(&serverAddress, 0, sizeof(serverAddress));
     
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddress.sin_port = htons(8080);
+    serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serverAddress.sin_port = htons(port_number);
     
     if (bind(serverSocket, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) != 0)
     {
@@ -138,11 +142,9 @@ int main (int argc, char *argv[])
             char name[100];
             char type[20];
             char request[100];
-            char host_name[20];
-            int port_number;
 
             recv(serverConnection, request, 100, 0);
-            sscanf(request, "HTTP/1.1 %s %s %s %d", type, name, host_name, &port_number);
+            sscanf(request, "HTTP/1.1 %s %s", type, name);
             printf("%s\n", request);
             
             if (strcmp("POST", type) == 0)
