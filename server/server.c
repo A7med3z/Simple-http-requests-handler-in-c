@@ -16,7 +16,6 @@
 
 void send_file (char *name, int sock) {
     FILE* file = fopen (name, "rb");
-    send(sock, name, sizeof(name), 0);
 
     int size;
     fseek(file, 0, SEEK_END);
@@ -48,10 +47,8 @@ void send_file (char *name, int sock) {
     printf("finish sending\n");
 }
 
-void receive_file (int sock) {
+void receive_file (int sock,char*name) {
 
-    char name[1024];
-    recv(sock, name, 1024, 0);
     printf("file name : %s\n", name);
 
     if (access(name, F_OK) == 0)
@@ -80,6 +77,7 @@ void receive_file (int sock) {
     FILE* file = fopen(name, "wb");        
     fwrite(data, 1, size, file);
     fclose(file);
+    free(data);
     printf("finish receiving\n");
 }
 
@@ -137,25 +135,26 @@ int main (int argc, char *argv[])
         if (pid == 0)
         {
             close(serverSocket);
-            // char name[100];
-            // char type[20];
-            // char request[100];
-            // recv(serverConnection, request, 100, 0);
-            // sscanf(request, "HTTP/1.1 %s %s", type, name);
-            // printf("%s\n", request);
-            // printf("%s\n", type);
-            // printf("%s\n", name);
+            char name[100];
+            char type[20];
+            char request[100];
+            char host_name[20];
+            int port_number;
+
+            recv(serverConnection, request, 100, 0);
+            sscanf(request, "HTTP/1.1 %s %s %s %d", type, name, host_name, &port_number);
+            printf("%s\n", request);
             
-            // if (strcmp("POST", type) == 0)
-            // {
-                receive_file(serverConnection);
-            // } else if (strcmp("GET", type) == 0)
-            // {
-            //     send_file(name, serverConnection);
-            // } else {
-            //     printf("bad request\n");
-            //     exit(1);
-            // }  
+            if (strcmp("POST", type) == 0)
+            {
+                receive_file(serverConnection,name);
+            } else if (strcmp("GET", type) == 0)
+            {
+                send_file(name, serverConnection);
+            } else {
+                printf("bad request\n");
+                exit(1);
+            }  
         }
         else
         {

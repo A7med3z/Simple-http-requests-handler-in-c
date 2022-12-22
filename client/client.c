@@ -16,8 +16,7 @@
 
 void send_file (char *name, int sock) {
     FILE* file = fopen (name, "rb");
-    send(sock, name, sizeof(name), 0);
-
+    printf("re = %d\n", (int)sizeof(name));
     int size;
     fseek(file, 0, SEEK_END);
     size = ftell(file);
@@ -45,13 +44,12 @@ void send_file (char *name, int sock) {
 
     send(sock, data + offset * BLOCK_SIZE, lastBlockSize, 0);
     fclose(file);
+    free(data);
     printf("finish sending\n");
 }
 
-void receive_file (int sock) {
+void receive_file (int sock,char*name) {
 
-    char name[1024];
-    recv(sock, name, 1024, 0);
     printf("file name : %s\n", name);
 
     if (access(name, F_OK) == 0)
@@ -106,18 +104,21 @@ int main () {
     char name[100];
     char request[100];
     char type[20];
+    char host_name[20];
+    int port_number;
 
-    scanf("HTTP/1.1 %s %s", type, name);
+    scanf("client_%s %s %s (%d)", type, name, host_name, &port_number);
     
-    sprintf(request, "HTTP/1.1 %s %s", type, name);
-    send(clientSocket, request, 100, 0);
-    printf("%s\n", request);
-    printf("%s\n", type);
-    if (strcmp("GET", type) == 0)
+
+    if (strcmp("get", type) == 0)
     {
-        receive_file(clientSocket);
-    } else if (strcmp("POST", type) == 0)
+        sprintf(request, "HTTP/1.1 GET %s %s %d", name, host_name, port_number);
+        send(clientSocket, request, 100, 0);
+        receive_file(clientSocket,name);
+    } else if (strcmp("post", type) == 0)
     {
+        sprintf(request, "HTTP/1.1 POST %s %s %d", name, host_name, port_number);
+        send(clientSocket, request, 100, 0);
         send_file(name, clientSocket);
     } else {
         printf("bad request\n");
