@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -82,9 +83,9 @@ int main (int argc, char *argv[])
     int port_number;
     sscanf(argv[1], "%d", &port_number);
 
-    char ok_msg[] = "HTTP/1.1 200 OK\r\n";
-    char nf_msg[] = "HTTP/1.1 404 Not Found\r\n";
-    char ok[] = "ok";
+    char *ok_msg = "HTTP/1.1 200 OK";
+    char *nf_msg = "HTTP/1.1 404 Not Found";
+    char *ok = "ok";
     
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1)
@@ -109,7 +110,7 @@ int main (int argc, char *argv[])
         exit(1);
     }
     
-    if (listen(serverSocket, 4) != 0) 
+    if (listen(serverSocket, 10) != 0) 
     {
         printf("listening error\n");
         exit(1);
@@ -117,7 +118,10 @@ int main (int argc, char *argv[])
     struct sockaddr_in clientAddress;
     memset(&clientAddress, 0, sizeof(clientAddress));
     int clientAddressLength = 0;
-    
+
+    time_t s;
+    time_t e;
+    time(&s);
     while (1)
     {
         memset(&clientAddress, 0, sizeof(clientAddress));
@@ -141,6 +145,7 @@ int main (int argc, char *argv[])
             char name[100];
             char type[20];
             char request[100];
+            char response[100];
 
             recv(serverConnection, request, 100, 0);
             sscanf(request, "HTTP/1.1 %s %s", type, name);
@@ -150,7 +155,7 @@ int main (int argc, char *argv[])
             {
                 if (access(name, F_OK) != 0)
                 {
-                    send(serverConnection, ok, sizeof(ok), 0);
+                    send(serverConnection, ok, 100, 0);
                     receive_file(serverConnection,name);
                 } else 
                 {
@@ -160,10 +165,10 @@ int main (int argc, char *argv[])
             {
                 if (access(name, F_OK) == 0)
                 {
-                    send(serverConnection, ok_msg, sizeof(ok_msg), 0);
+                    send(serverConnection, ok_msg,100, 0);
                     send_file(name, serverConnection);
                 } else {
-                    send(serverConnection, nf_msg, sizeof(nf_msg), 0);
+                    send(serverConnection, nf_msg, 100, 0);
                 }
             } else {
                 printf("bad request\n");
@@ -174,6 +179,12 @@ int main (int argc, char *argv[])
         {
             close(serverConnection);
         }
+        time(&e);
+        if (difftime(s,e) > 30)
+        {
+            break;
+        }
+        
     }
     return 0;
 }

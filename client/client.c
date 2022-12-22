@@ -90,9 +90,9 @@ int main (int argc, char *argv[]) {
         exit(1);
     }
 
-    char ok_msg[] = "HTTP/1.1 200 OK\r\n";
-    char nf_msg[] = "HTTP/1.1 404 Not Found\r\n";
-    char ok[] = "ok";
+    char *ok_msg= "HTTP/1.1 200 OK";
+    char *nf_msg= "HTTP/1.1 404 Not Found";
+    char *ok= "ok";
     
     char name[100];
     char request[100];
@@ -124,27 +124,39 @@ int main (int argc, char *argv[]) {
     scanf("client_%s %s", type, name);
 
     char* response;
-
+    char res [100];
     if (strcmp("get", type) == 0)
     {
         sprintf(request, "HTTP/1.1 GET %s", name);
         send(clientSocket, request, 100, 0);
-        recv(clientSocket, response, 1024, 0);
-        if (strcmp(response, ok_msg) == 0)
+        memset(res,0,100);
+
+       printf( " h= %d\n",(int)recv(clientSocket, res, 100, 0));
+
+        printf("%s\n",res);
+        
+        if (strcmp(res, ok_msg) == 0)
         {
             receive_file(clientSocket,name);
         } else {
-            printf("%s\n", response);
+            printf("%s\n", res);
         }   
     } else if (strcmp("post", type) == 0)
     {
         sprintf(request, "HTTP/1.1 POST %s", name);
+
         send(clientSocket, request, 100, 0);
-        if (strcmp(response, ok) == 0)
+
+        memset(res,0,100);
+        recv(clientSocket, res, 100, 0);
+     
+         printf(" res= %s\n",res);
+
+        if (strcmp(res, ok) == 0)
         {
             send_file(name, clientSocket);
         } else {
-            printf("%s\n", response);
+            printf("%s\n", res);
         }   
     } else {
         printf("bad request\n");
